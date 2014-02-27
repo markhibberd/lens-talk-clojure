@@ -15,7 +15,7 @@ lein repl
 
 (show user)
 
-(lget lpostcode home #(+ 1 %))
+(lget lpostcode home)
 
 (lset lpostcode home 5000)
 
@@ -33,4 +33,14 @@ lein repl
 
 (-modify -postcode home #(+ 10 %))
 
+(-get (comp -address -postcode) mark)
+
 (-set (comp -address -postcode) mark 500)
+
+(-set -plaintext user "orange")
+
+(-get (comp -identity -address -postcode) user)
+
+(-set (comp -identity -address -postcode) user 500)
+
+(-modify (comp -identity -address -postcode) user #(+ 10 %))
