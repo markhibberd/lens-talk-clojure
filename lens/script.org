@@ -1,3 +1,6 @@
+
+lein repl
+
 (use 'lens.core)
 
 (def home (->Address "road" "place" 4000))
@@ -6,19 +9,28 @@
 
 (def user (->User 3365 "mth" mark "6aefd2842be62cd470709b27aedc7db7"))
 
- (:require 'clojure.pprint)
+(show home)
 
-(clojure.pprint/pprint mark)
+(show mark)
 
-(clojure.pprint/pprint user)
+(show user)
 
-(def updated (update-in user [:identity]
- (fn [person] (update-in person [:address]
-  (fn [address] (update-in address [:postcode] #(+ 4 %)))))))
+(lget lpostcode home #(+ 1 %))
 
-(clojure.pprint/pprint lpostcode)
+(lset lpostcode home 5000)
 
-(clojure.pprint/pprint user)
-(clojure.pprint/pprint updated)
+(lmodify lpostcode home #(+ 1 %))
 
-(update-in user [:identity :address :postcode] #(+ 2 %))
+(lcompose laddress lpostcode)
+
+(lget (lcompose laddress lpostcode) mark)
+
+(lset (lcompose laddress lpostcode) mark 500)
+
+(-get -postcode home)
+
+(-set -postcode home 500)
+
+(-modify -postcode home #(+ 10 %))
+
+(-set (comp -address -postcode) mark 500)

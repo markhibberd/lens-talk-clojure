@@ -1,20 +1,7 @@
-(ns lens.core)
+(ns lens.core
+  (:require clojure.pprint))
 
-(defmacro def-curry-fn [name args & body]
-  {:pre [(not-any? #{'&} args)]}
-  (if (empty? args)
-    `(defn ~name ~args ~@body)
-    (let [rec-funcs (reduce (fn [l v]
-                              `(letfn [(helper#
-                                         ([] helper#)
-                                         ([x#] (let [~v x#] ~l))
-                                         ([x# & rest#] (let [~v x#]
-                                                         (apply (helper# x#) rest#))))]
-                                 helper#))
-                            `(do ~@body) (reverse args))]
-      `(defn ~name [& args#]
-         (let [helper# ~rec-funcs]
-           (apply helper# args#))))))
+(defn show [a] (clojure.pprint/pprint a))
 
 (defrecord Address [street city postcode])
 
@@ -22,7 +9,7 @@
 
 (defrecord User [uid username identity password])
 
-; get :: a -> b, set :: a -> b -> a
+; getter :: a -> b, setter :: a -> b -> a
 (defrecord Lens [getter setter])
 
 (defn lget [lens a]
@@ -34,27 +21,113 @@
 (defn lmodify [lens a func]
   ((:setter lens) a (func ((:getter lens) a))))
 
-(def lpostcode (->Lens (fn [person] (:postcode person)) (fn [person postcode] (assoc-in person [:postcode] postcode))))
+(defn lcompose [lens-a-b lens-b-c]
+  (->Lens
+    (fn [a] (lget lens-b-c (lget lens-a-b a)))
+    (fn [a c] (lset lens-a-b a
+                (lset lens-b-c
+                  (lget lens-a-b a) c)))))
 
-;; (\i -> p { _y = i}) <$> f (_y p)
-;; forall f. Functor f => (b -> f b') -> a -> a'
+(def lpostcode
+  (->Lens
+    (fn [address] (:postcode address))
+    (fn [address postcode] (assoc-in address [:postcode] postcode))))
 
-;; (\i -> p { _y = i}) <$> f (_y p)
-;;(defn mklens [get set]
-;;   ())
-
-(def-curry-fn add [x y] (+ x y))
+(def laddress
+  (->Lens
+    (fn [person] (:address person))
+    (fn [person address] (assoc-in person [:address] address))))
 
 (defprotocol Functor
     (fmap [functor f] "fmap :: f a -> (a -> b) -> f b"))
 
-;; data Identity a = Identity { runIdentity :: a }
-(defrecord Identity [runIdentity]
+;; data Id a = Id { runId :: a }
+(defrecord Id [runId]
     Functor
     (fmap [functor f]
-        (Identity. (f (:runIdentity functor)))))
+        (Id. (f (:runId functor)))))
 
+;; data Const x a = Const { runConst :: x }
 (defrecord Const [runConst]
     Functor
     (fmap [functor f]
         (Const. (:runConst functor))))
+
+(defn -get [lens a]
+  (let [b-cb (fn [z] (->Const z)) ;- b -> Const b b
+        a-ca (lens b-cb)          ;- a -> Const b a
+        ca   (a-ca a)]            ;- Const b a
+       (:runConst ca)))           ;- b
+
+(defn -set [lens a b]
+  (let [b-ib (fn [bb] (->Id b)) ;- b -> Id b
+        a-ia (lens b-ib   )     ;- a -> Id a
+        ia   (a-ia a)]          ;- Id a
+       (:runId ia)))            ;- a
+
+(defn -modify [lens a f]
+  (let [b-ib (fn [bb] (->Id (f bb))) ;- b -> Id b
+        a-ia (lens b-ib   )      ;- a -> Id a
+        ia   (a-ia a)]           ;- Id a
+       (:runId ia)))             ;- a
+
+(defn lens [getter, setter]
+  (fn [b-fb]
+    (fn [a]
+      (fmap (b-fb (getter a))
+        (fn [b] (setter a b))))))
+
+(def -postcode
+  (lens
+    (fn [address] (:postcode address))
+    (fn [address postcode] (assoc-in address [:postcode] postcode))))
+
+(def -city
+  (lens
+    (fn [address] (:city address))
+    (fn [address city] (assoc-in address [:city] city))))
+
+(def -street
+  (lens
+    (fn [address] (:street address))
+    (fn [address street] (assoc-in address [:street] street))))
+
+(def -address
+  (lens
+    (fn [person] (:address person))
+    (fn [person address] (assoc-in person [:address] address))))
+
+(def -age
+  (lens
+    (fn [person] (:age person))
+    (fn [person age] (assoc-in person [:age] age))))
+
+(def -name
+  (lens
+    (fn [person] (:name person))
+    (fn [person name] (assoc-in person [:name] name))))
+
+(def -uid
+  (lens
+    (fn [user] (:uid user))
+    (fn [user uid] (assoc-in user [:uid] uid))))
+
+(def -username
+  (lens
+    (fn [user] (:username user))
+    (fn [user username] (assoc-in user [:username] username))))
+
+(def -identity
+  (lens
+    (fn [user] (:identity user))
+    (fn [user identity] (assoc-in user [:identity] identity))))
+
+(def -password
+  (lens
+    (fn [user] (:password user))
+    (fn [user password] (assoc-in user [:password] password))))
+
+;(def -plaintext
+;  (lens
+;    (fn [user] ("can't get plaintext, this is a getter only"))
+;    (fn [user plain] (assoc-in user [:identity] (digest/md5 plain)))))
