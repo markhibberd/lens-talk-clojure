@@ -1,7 +1,7 @@
 
 lein repl
 
-(use 'lens.core)
+(use 'lens.core :reload)
 
 (def home (->Address "road" "place" 4000))
 

@@ -46,61 +46,29 @@
 
 ;;;;;; the actual lens functions, someone who can do macros should get rid of these in about 2 minutes
 
-(def -postcode
+(defn mklens [func]
   (lens
-    (fn [address] (:postcode address))
-    (fn [address postcode] (assoc-in address [:postcode] postcode))))
+    (fn [a] (func a))
+    (fn [a b] (assoc-in a [func] b))))
 
-(def -city
-  (lens
-    (fn [address] (:city address))
-    (fn [address city] (assoc-in address [:city] city))))
-
-(def -street
-  (lens
-    (fn [address] (:street address))
-    (fn [address street] (assoc-in address [:street] street))))
-
-(def -address
-  (lens
-    (fn [person] (:address person))
-    (fn [person address] (assoc-in person [:address] address))))
-
-(def -age
-  (lens
-    (fn [person] (:age person))
-    (fn [person age] (assoc-in person [:age] age))))
-
-(def -name
-  (lens
-    (fn [person] (:name person))
-    (fn [person name] (assoc-in person [:name] name))))
-
-(def -uid
-  (lens
-    (fn [user] (:uid user))
-    (fn [user uid] (assoc-in user [:uid] uid))))
-
-(def -username
-  (lens
-    (fn [user] (:username user))
-    (fn [user username] (assoc-in user [:username] username))))
-
-(def -identity
-  (lens
-    (fn [user] (:identity user))
-    (fn [user identity] (assoc-in user [:identity] identity))))
-
-(def -password
-  (lens
-    (fn [user] (:password user))
-    (fn [user password] (assoc-in user [:password] password))))
+(def -postcode (mklens :postcode))
+(def -city (mklens :city))
+(def -street (mklens :street))
+(def -address (mklens :address))
+(def -age (mklens :age))
+(def -name (mklens :name))
+(def -uid (mklens :uid))
+(def -username (mklens :username))
+(def -identity (mklens :identity))
+(def -password (mklens :password))
 
 ; FIX this is only a getter, need to specialize functor by hand
 (def -plaintext
   (lens
     (fn [user] (:password user))
     (fn [user plain] (assoc-in user [:password] (digest/md5 plain)))))
+
+
 
 
 ;;;;; naive lens implementation - this is silly, but informative ;;;;;
@@ -162,8 +130,9 @@
 ;       (:runId ia)))            ;- a
 ;
 
-(defmacro mkLens [ob, fi]
-  `(def ~(symbol (str "-" fi))
+
+(defmacro mkLens [ob, fn]
+  `(def ~(symbol (str "-" fn))
     (lens
-      (fn [~ob] (~fi ~ob))
-      (fn [~ob ~fi] (assoc-in ~ob [~fi] ~fi)))))
+      (fn [x#] (~(keyword fn) x#))
+      (fn [o# x#] (assoc-in o# [~(keyword fn)] x#)))))
